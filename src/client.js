@@ -1,5 +1,3 @@
-'use strict'
-
 const EventEmitter = require('events').EventEmitter
 const debug = require('debug')('minecraft-protocol')
 const compression = require('./transforms/compression')
@@ -30,8 +28,9 @@ class Client extends EventEmitter {
     this.latency = 0
     this.hideErrors = hideErrors
     this.closeTimer = null
-
+    this.queuePackets = false
     this.state = states.HANDSHAKING
+    this.queued = []
   }
 
   get state () {
@@ -180,8 +179,8 @@ class Client extends EventEmitter {
     }
     if (this.socket) {
       this.closeTimer = setTimeout(
-        this.socket.destroy.bind(this.socket),
-        closeTimeout
+          this.socket.destroy.bind(this.socket),
+          closeTimeout
       )
     }
   }
@@ -213,24 +212,20 @@ class Client extends EventEmitter {
       this.compressor.threshold = threshold
     }
   }
-  
-  const queued = []
-
-  this.queuePackets = false
 
   write (name, params) {
     if (!this.serializer.writable) { return }
     debug('writing packet ' + this.state + '.' + name)
     debug(params)
-    if (this.queuePackets) queued.push({name: name, params: params, num: queued.length})
+    if (this.queuePackets) this.queued.push({name: name, params: params})
     else {
-      if (queued.length > 0) {
-        queued.forEach((item) => {
-          this.serializer.write({ item.name, item.params })
-          queued.splice(item.num, 1)
+      if (this.queued.length > 0) {
+        this.queued.forEach((item) => {
+          const {name, params} = item
+          this.serializer.write({name, params})
+          this.queued.splice(this.queued.indexOf(item), 1)
         })
       }
-      queued = []
       this.serializer.write({ name, params })
     }
   }
