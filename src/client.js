@@ -213,12 +213,21 @@ class Client extends EventEmitter {
       this.compressor.threshold = threshold
     }
   }
+  
+  const queued = []
+
+  this.queuePackets = false
 
   write (name, params) {
     if (!this.serializer.writable) { return }
     debug('writing packet ' + this.state + '.' + name)
     debug(params)
-    this.serializer.write({ name, params })
+    if (this.queuePackets) queue.push({name: name, params: params})
+    else {
+      if (queued.length > 0) queued.forEach((item) => this.serializer.write({ item.name, item.params }))
+      queued = []
+      this.serializer.write({ name, params })
+    }
   }
 
   writeRaw (buffer) {
