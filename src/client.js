@@ -222,9 +222,14 @@ class Client extends EventEmitter {
     if (!this.serializer.writable) { return }
     debug('writing packet ' + this.state + '.' + name)
     debug(params)
-    if (this.queuePackets) queued.push({name: name, params: params})
+    if (this.queuePackets) queued.push({name: name, params: params, num: queued.length})
     else {
-      if (queued.length > 0) queued.forEach((item) => this.serializer.write({ item.name, item.params }))
+      if (queued.length > 0) {
+        queued.forEach((item) => {
+          this.serializer.write({ item.name, item.params })
+          queued.splice(item.num, 1)
+        })
+      }
       queued = []
       this.serializer.write({ name, params })
     }
